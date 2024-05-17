@@ -14,166 +14,6 @@ include "header.php";
                 <a href="store.php" class="continue">Continue Shopping</a>
             </div>
             <div class="cart">
-    <ul class="cartWrap">
-    <?php
-    if (isset($_SESSION["uid"])) {
-        $sql = "SELECT c.order_id, a.product_id, a.product_title, a.product_price, a.product_image, b.qty, b.amt, c.total_amt 
-                FROM products a, order_products b, orders_info c 
-                WHERE a.product_id = b.product_id AND c.user_id = '$_SESSION[uid]' AND b.order_id = c.order_id 
-                ORDER BY c.order_id DESC";
-        $query = mysqli_query($con, $sql);
-
-        if (mysqli_num_rows($query) > 0) {
-            $prev_old = 0;
-            $prev_total = 0;
-            $i = 1;
-            $numRows = mysqli_num_rows($query);
-            while ($row = mysqli_fetch_array($query)) {
-                $product_id = $row["product_id"];
-                $product_title = $row["product_title"];
-                $product_price = $row["product_price"];
-                $product_image = $row["product_image"];
-                $qty = $row["qty"];
-                $amt = $row["amt"];
-                $total_amt = $row["total_amt"];
-                $order_id = $row["order_id"];
-
-                if ($prev_old == 0 || $prev_old == $order_id) {
-                    $prev_old = $order_id;
-                    $prev_total = $total_amt;
-                    $i++;
-                    echo '<li class="items even">
-                        <div class="infoWrap"> 
-                            <div class="cartSection">
-                                <img src="product_images/'.$product_image.'" alt="'.$product_title.'" class="itemImg" />
-                                <p class="itemNumber">#'.$product_id.'</p>
-                                <h3>'.$product_title.'</h3>
-                                <p>'.$qty.' x &#8360; '.$product_price.'</p>
-                                <p class="stockStatus">Delivered</p>
-                            </div>  
-                            <div class="prodTotal cartSection"><p>'.$qty.'</p></div>
-                            <div class="prodTotal cartSection"><p>&#8360; '.$product_price.'</p></div>
-                            <div class="cartSection removeWrap">
-                                <a href="#" class="remove">x</a>
-                            </div>
-                            <div class="cartSection invoiceWrap">
-                                <button class="invoiceButton" onclick="showInvoice('.$order_id.')">Invoice</button>
-                                <button class="deleteButton" onclick="deleteOrder('.$order_id.')">Delete</button>
-                            </div>
-                        </div>
-                    </li>';
-                } else {
-                    $prev_old = $order_id;
-                    $i++;
-                    echo '</ul></div><div class="special"><div class="specialContent">Thanks for Using our Platform</div></div><div class="subtotal cf"><ul>
-                            <li class="totalRow"><span class="label">Subtotal</span><span class="value">&#8360; '.$prev_total.'</span></li>
-                            <li class="totalRow"><span class="label">Shipping</span><span class="value">&#8360; 0.00</span></li>
-                            <li class="totalRow"><span class="label">Tax</span><span class="value">&#8360; 0.00</span></li>
-                            <li class="totalRow final"><span class="label">Total</span><span class="value">&#8360;'.$prev_total.'</span></li>
-                        </ul></div><div class="cart"><ul class="cartWrap"><li class="items even"><div class="infoWrap">
-                            <div class="cartSection">
-                                <img src="product_images/'.$product_image.'" alt="'.$product_title.'" class="itemImg" />
-                                <p class="itemNumber">#'.$product_id.'</p>
-                                <h3>'.$product_title.'</h3>
-                                <p>'.$qty.' x &#8360; '.$product_price.'</p>
-                                <p class="stockStatus out">Shipping</p>
-                            </div>  
-                            <div class="prodTotal cartSection"><p>'.$qty.'</p></div>
-                            <div class="prodTotal cartSection"><p>&#8360; '.$product_price.'</p></div>
-                            <div class="cartSection removeWrap">
-                                <a href="#" class="remove">x</a>
-                            </div>
-                            <div class="cartSection invoiceWrap">
-                                <button class="invoiceButton" onclick="showInvoice('.$order_id.')">Invoice</button>
-                                <button class="deleteButton" onclick="deleteOrder('.$order_id.')">Delete</button>
-                            </div>
-                        </div>
-                    </li>';
-                    $prev_total = $total_amt;
-                }
-                if ($i == $numRows + 1) {
-                    echo '<div class="special"><div class="specialContent">Thanks for Using our Platform</div></div><div class="subtotal cf"><ul>
-                            <li class="totalRow"><span class="label">Subtotal</span><span class="value">&#8360; '.$prev_total.'</span></li>
-                            <li class="totalRow"><span class="label">Shipping</span><span class="value">&#8360; 0.00</span></li>
-                            <li class="totalRow"><span class="label">Tax</span><span class="value">&#8360; 0.00</span></li>
-                            <li class="totalRow final"><span class="label">Total</span><span class="value">&#8360;'.$prev_total.'</span></li>
-                        </ul></div>';
-                }
-            }
-        } else {
-            echo '<p>No orders found.</p>';
-        }
-    }
-    ?>
-    </ul>
-</div>
-<?php
-include('db.php'); // Include your database connection file
-
-$response = array('success' => false, 'message' => '');
-
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['order_id'])) {
-    $order_id = intval($_POST['order_id']);
-
-    // Start transaction
-    mysqli_begin_transaction($con);
-
-    try {
-        // Delete from order_products
-        $sql = "DELETE FROM order_products WHERE order_id = ?";
-        $stmt = $con->prepare($sql);
-        $stmt->bind_param("i", $order_id);
-        $stmt->execute();
-
-        // Delete from orders_info
-        $sql = "DELETE FROM orders_info WHERE order_id = ?";
-        $stmt = $con->prepare($sql);
-        $stmt->bind_param("i", $order_id);
-        $stmt->execute();
-
-        // Commit transaction
-        mysqli_commit($con);
-
-        $response['success'] = true;
-        $response['message'] = 'Order deleted successfully!';
-    } catch (Exception $e) {
-        // Rollback transaction if something goes wrong
-        mysqli_rollback($con);
-        $response['message'] = 'Failed to delete order: ' . $e->getMessage();
-    }
-
-    // Close statement
-    $stmt->close();
-} else {
-    $response['message'] = 'Invalid request.';
-}
-
-// Close connection
-mysqli_close($con);
-
-// Return JSON response
-echo json_encode($response);
-?>
-
-        </div>
-    </div>
-</section>
-
-<!-- Invoice Popup -->
-<div id="invoicePopup" class="invoicePopup">
-    <div class="invoiceContent">
-        <span class="close" onclick="closeInvoice()">&times;</span>
-        <div id="invoiceDetails">
-        <section class="section main main-raised">       
-	<div class="container-fluid ">
-		<div class="wrap cf">
-            <h1 class="projTitle">All Your Orders</h1>
-            <div class="heading cf">
-                <h1>My Orders</h1>
-                <h1 style="margin-left:55%">qty</h1>
-                <a href="store.php" class="continue">Continue Shopping</a>
-            </div>
-            <div class="cart">
                 <ul class="cartWrap">
                 <?php
                 if (isset($_SESSION["uid"])) {
@@ -202,7 +42,7 @@ echo json_encode($response);
                                 $prev_old = $order_id;
                                 $prev_total = $total_amt;
                                 $i++;
-                                echo '<li class="items even">
+                                echo '<li class="items even" id="order-item-'.$order_id.'">
                                     <div class="infoWrap"> 
                                         <div class="cartSection">
                                             <img src="product_images/'.$product_image.'" alt="'.$product_title.'" class="itemImg" />
@@ -214,7 +54,7 @@ echo json_encode($response);
                                         <div class="prodTotal cartSection"><p>'.$qty.'</p></div>
                                         <div class="prodTotal cartSection"><p>&#8360; '.$product_price.'</p></div>
                                         <div class="cartSection removeWrap">
-                                            <a href="#" class="remove">x</a>
+                                            <button class="remove" onclick="removeOrderItem('.$order_id.')">x</button>
                                         </div>
                                         <div class="cartSection invoiceWrap">
                                             <button class="invoiceButton" onclick="showInvoice('.$order_id.')">Invoice</button>
@@ -229,7 +69,7 @@ echo json_encode($response);
                                         <li class="totalRow"><span class="label">Shipping</span><span class="value">&#8360; 0.00</span></li>
                                         <li class="totalRow"><span class="label">Tax</span><span class="value">&#8360; 0.00</span></li>
                                         <li class="totalRow final"><span class="label">Total</span><span class="value">&#8360;'.$prev_total.'</span></li>
-                                    </ul></div><div class="cart"><ul class="cartWrap"><li class="items even"><div class="infoWrap">
+                                    </ul></div><div class="cart"><ul class="cartWrap"><li class="items even" id="order-item-'.$order_id.'"><div class="infoWrap">
                                         <div class="cartSection">
                                             <img src="product_images/'.$product_image.'" alt="'.$product_title.'" class="itemImg" />
                                             <p class="itemNumber">#'.$product_id.'</p>
@@ -240,10 +80,10 @@ echo json_encode($response);
                                         <div class="prodTotal cartSection"><p>'.$qty.'</p></div>
                                         <div class="prodTotal cartSection"><p>&#8360; '.$product_price.'</p></div>
                                         <div class="cartSection removeWrap">
-                                            <a href="#" class="remove">x</a>
+                                            <button class="remove" onclick="removeOrderItem('.$order_id.','.$prev_total.')">x</button>
                                         </div>
                                         <div class="cartSection invoiceWrap">
-                                            <button class="invoiceButton" onclick="showInvoice('.$order_id.')">Invoice</button>
+                                            <button class="invoiceButton" onclick="showInvoice('.$order_id.',)">Invoice</button>
                                         </div>
                                     </div>
                                 </li>';
@@ -268,7 +108,12 @@ echo json_encode($response);
         </div>
     </div>
 </section>
-        </div>
+
+<!-- Invoice Popup -->
+<div id="invoicePopup" class="invoicePopup">
+    <div class="invoiceContent">
+        <span class="close" onclick="closeInvoice()">&times;</span>
+        <div id="invoiceDetails"></div>
         <button onclick="printInvoice()">Print</button>
     </div>
 </div>
@@ -305,6 +150,14 @@ function printInvoice() {
 
     document.body.innerHTML = originalContents;
     window.location.reload(); // Reload to restore the original content
+}
+
+function removeOrderItem(orderId) {
+    // Remove the order item from the DOM
+    var orderItem = document.getElementById('order-item-' + orderId);
+    if (orderItem) {
+        orderItem.style.display = 'none';
+    }
 }
 </script>
 
@@ -343,46 +196,3 @@ function printInvoice() {
     cursor: pointer;
 }
 </style>
-<?php
-include "db.php";
-
-if (isset($_GET['order_id'])) 
-{
-    $order_id = $_GET['order_id'];
-
-    $sql = "SELECT a.product_title, a.product_price, b.qty, c.total_amt 
-            FROM products a, order_products b, orders_info c 
-            WHERE a.product_id = b.product_id AND b";
-           } 
-?>
-<script>
-    function deleteOrder(orderId) {
-    if (confirm("Are you sure you want to delete this order?")) {
-        $.ajax({
-            url: 'delete_order.php',
-            type: 'POST',
-            data: { order_id: orderId },
-            success: function(response) {
-                console.log(response); // Log the response for debugging
-                try {
-                    var data = JSON.parse(response); // Parse JSON response
-                    if (data.success) {
-                        alert('Order deleted successfully!');
-                        location.reload(); // Reload the page to reflect changes
-                    } else {
-                        alert('Failed to delete order: ' + data.message);
-                    }
-                } catch (e) {
-                    console.error('Parsing error:', e);
-                    alert('An error occurred. Please try again.');
-                }
-            },
-            error: function(jqXHR, textStatus, errorThrown) {
-                console.error('AJAX error:', textStatus, errorThrown);
-                alert('An error occurred. Please try again.');
-            }
-        });
-    }
-}
-
-</script>
